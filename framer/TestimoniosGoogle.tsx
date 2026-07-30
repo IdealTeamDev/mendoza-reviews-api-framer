@@ -17,6 +17,7 @@ type Props = {
     intervaloSegundos: number
     tarjetasEscritorio: number
     tarjetasMovil: number
+    modoVista: "auto" | "movil" | "escritorio"
 }
 
 const URL_POR_DEFECTO =
@@ -29,6 +30,7 @@ export default function TestimoniosGoogle({
     intervaloSegundos = 4.5,
     tarjetasEscritorio = 2,
     tarjetasMovil = 1,
+    modoVista = "auto",
 }: Props) {
     const [resenas, setResenas] = React.useState<ResenaGoogle[]>([])
     const [indiceActual, setIndiceActual] = React.useState(0)
@@ -139,10 +141,17 @@ export default function TestimoniosGoogle({
         return () => limpiarTemporizadorReanudar()
     }, [limpiarTemporizadorReanudar])
 
-    // 100% garantizado: Es móvil si el contenedor mide < 600px O el ancho de pantalla es < 768px
-    const esMovil =
-        anchoContenedor < 600 ||
+    // Determinación de modo móvil (Automático < 650px o forzado desde el panel de Framer)
+    const esMovilCalculado =
+        anchoContenedor < 650 ||
         (typeof window !== "undefined" && window.innerWidth < 768)
+
+    const esMovil =
+        modoVista === "movil"
+            ? true
+            : modoVista === "escritorio"
+            ? false
+            : esMovilCalculado
 
     const cantidadVisible = esMovil ? Math.max(1, tarjetasMovil) : Math.max(1, tarjetasEscritorio)
     const puedeMoverse = resenas.length > cantidadVisible
@@ -351,6 +360,8 @@ function obtenerColorAvatar(nombre: string = ""): string {
 const estilos: Record<string, React.CSSProperties> = {
     contenedor: {
         width: "100%",
+        maxWidth: "100%",
+        boxSizing: "border-box",
         background: "transparent",
         position: "relative",
         overflow: "visible",
@@ -361,6 +372,7 @@ const estilos: Record<string, React.CSSProperties> = {
         gap: 24,
         alignItems: "stretch",
         width: "100%",
+        boxSizing: "border-box",
     },
     tarjeta: {
         minHeight: 200,
@@ -486,6 +498,13 @@ addPropertyControls(TestimoniosGoogle, {
         max: 20,
         step: 0.5,
     },
+    modoVista: {
+        type: ControlType.Enum,
+        title: "Modo Vista",
+        defaultValue: "auto",
+        options: ["auto", "movil", "escritorio"],
+        optionTitles: ["Automático (Responsive)", "Móvil (1 Tarjeta)", "Escritorio (2 Tarjetas)"],
+    },
     tarjetasEscritorio: {
         type: ControlType.Number,
         title: "Tarjetas Escritorio",
@@ -503,5 +522,6 @@ addPropertyControls(TestimoniosGoogle, {
         step: 1,
     },
 })
+
 
 
