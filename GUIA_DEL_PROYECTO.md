@@ -649,3 +649,164 @@ Si otra IA revisa este proyecto, debe saber:
 7. El endpoint que actualiza datos es `/api/sync`.
 8. El limite actual es de 50 resenas.
 9. Todo cambio debe mantener commits en espanol y solo texto.
+
+## 25. Componente de carrusel para Framer
+
+Este repositorio tambien guarda una copia del componente que se debe pegar en Framer:
+
+```text
+framer/TestimoniosGoogle.tsx
+```
+
+Este archivo existe en Git para que el proyecto quede documentado y cualquier persona o IA pueda entender exactamente que codigo se uso en Framer.
+
+### Que hace el componente
+
+`TestimoniosGoogle.tsx` consulta el endpoint publico:
+
+```text
+https://mendoza-reviews-api-framer-lemon.vercel.app/api/reviews
+```
+
+Luego toma las resenas y dibuja solo el carrusel:
+
+1. Tarjetas blancas de resenas.
+2. Nombre del paciente.
+3. Foto o inicial del paciente.
+4. Fecha.
+5. Estrellas.
+6. Texto de la resena.
+7. Flechas negras para avanzar y retroceder.
+
+### Que NO debe incluir este componente
+
+Este componente no debe incluir:
+
+1. El titulo `TESTIMONIALS`.
+2. Las estadisticas `+1500`, `5`, `+180`.
+3. El boton `Schedule Your Consultation`.
+4. Fondos blancos o decorativos.
+5. Las comillas grandes de fondo.
+6. Secciones anteriores o posteriores.
+
+Esos elementos se agregan manualmente en Framer porque pertenecen a la estructura visual del Figma, no al carrusel dinamico.
+
+### Por que se separo asi
+
+El Figma tiene una seccion donde una parte es fija y otra parte es dinamica:
+
+```text
+Parte fija manual en Framer:
+TESTIMONIALS + metricas + boton + fondo
+
+Parte dinamica en codigo:
+Carrusel de resenas de Google
+```
+
+Separar estas dos partes evita que el componente de codigo rompa el diseno manual de Framer.
+
+### Comportamiento responsive
+
+El componente esta preparado para escritorio y movil:
+
+```text
+Escritorio: 2 tarjetas visibles
+Movil: 1 tarjeta visible
+```
+
+Esto coincide con la referencia de Figma, donde en desktop se ven dos tarjetas dentro del carrusel y en movil se ve una tarjeta centrada.
+
+### Como instalarlo dentro de Framer
+
+1. Abrir el proyecto en Framer.
+2. Ir al panel izquierdo.
+3. Entrar a `Assets`.
+4. Buscar la seccion `Code`.
+5. Crear un archivo de codigo nuevo o abrir el existente.
+6. Usar uno de estos nombres:
+
+```text
+TestimoniosGoogle.tsx
+GoogleTestimonials.tsx
+```
+
+7. Copiar todo el contenido de:
+
+```text
+framer/TestimoniosGoogle.tsx
+```
+
+8. Pegar ese contenido en Framer.
+9. Guardar con:
+
+```text
+Ctrl + S
+```
+
+10. Volver al canvas.
+11. Insertar el componente en el area exacta donde va el carrusel.
+12. Ajustar el ancho y posicion desde Framer.
+
+### Como debe ubicarse en el diseno
+
+En Framer, primero se arma manualmente el bloque izquierdo con:
+
+```text
+TESTIMONIALS
++1500 Cirugias
+5 Estrellas
++180 Reviews
+Schedule Your Consultation
+```
+
+Luego, a la derecha de ese bloque, se inserta el componente `TestimoniosGoogle`.
+
+En movil, Framer debe apilar la estructura para que primero se vea el bloque manual y luego el carrusel.
+
+### Como cambiar la API si se duplica para otra web
+
+Si este componente se usa en otra pagina, se debe cambiar la URL por el endpoint de esa nueva API:
+
+```text
+https://dominio-de-la-api.vercel.app/api/reviews
+```
+
+Tambien se puede cambiar desde el control de propiedades de Framer llamado:
+
+```text
+URL de API
+```
+
+### Que revisar si no aparecen resenas
+
+1. Confirmar que `/api/reviews` abre en el navegador.
+2. Confirmar que devuelve `total`.
+3. Confirmar que devuelve un arreglo llamado `reviews`.
+4. Confirmar que `ALLOWED_ORIGIN` permite consumir desde Framer.
+5. Confirmar que no hay error de CORS en la consola del navegador.
+6. Confirmar que el archivo fue guardado en Framer con `Ctrl + S`.
+
+## 26. Documento privado de variables de entorno
+
+El archivo con las variables reales de Vercel se guarda solo como respaldo local privado:
+
+```text
+C:\Users\eliza\Downloads\VERCEL_ENVIRONMENT_VARIABLES_MENDOZA.md
+```
+
+Ese archivo no debe subirse a GitHub por ningun motivo.
+
+El repositorio ya tiene reglas en `.gitignore` para evitar subirlo:
+
+```text
+VERCEL_ENVIRONMENT_VARIABLES_MENDOZA.md
+VERCEL_ENVIRONMENT_VARIABLES_*.md
+```
+
+Si se crea una copia nueva del documento de claves, debe mantenerse fuera del repositorio o usar un nombre que tambien este cubierto por `.gitignore`.
+
+Las claves reales solo deben vivir en:
+
+1. Vercel `Settings -> Environment Variables`.
+2. El respaldo local privado en `Downloads`.
+3. La cuenta de Google Cloud correspondiente, cuando aplique.
