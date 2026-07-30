@@ -15,6 +15,8 @@ type Props = {
     apiUrl: string
     autoPlay: boolean
     intervaloSegundos: number
+    tarjetasEscritorio: number
+    tarjetasMovil: number
 }
 
 const URL_POR_DEFECTO =
@@ -25,6 +27,8 @@ export default function TestimoniosGoogle({
     apiUrl = URL_POR_DEFECTO,
     autoPlay = true,
     intervaloSegundos = 4.5,
+    tarjetasEscritorio = 2,
+    tarjetasMovil = 1,
 }: Props) {
     const [resenas, setResenas] = React.useState<ResenaGoogle[]>([])
     const [indiceActual, setIndiceActual] = React.useState(0)
@@ -110,7 +114,8 @@ export default function TestimoniosGoogle({
         return () => limpiarTemporizadorReanudar()
     }, [limpiarTemporizadorReanudar])
 
-    const cantidadVisible = esMovil ? 1 : 2
+    // 2 tarjetas horizontales en escritorio, 1 tarjeta en móvil por defecto
+    const cantidadVisible = esMovil ? Math.max(1, tarjetasMovil) : Math.max(1, tarjetasEscritorio)
     const puedeMoverse = resenas.length > cantidadVisible
 
     // Avance automático continuo que reinicia cíclicamente al llegar al final de la lista
@@ -168,7 +173,14 @@ export default function TestimoniosGoogle({
             onFocus={pausarCarrusel}
             onBlur={reanudarCarruselDespues}
         >
-            <div style={estilos.lista}>
+            <div
+                style={{
+                    ...estilos.lista,
+                    gridTemplateColumns: esMovil
+                        ? `repeat(${tarjetasMovil}, minmax(0, 1fr))`
+                        : `repeat(${tarjetasEscritorio}, minmax(0, 1fr))`,
+                }}
+            >
                 {resenasVisibles.map((resena) => (
                     <article key={resena.id} style={estilos.tarjeta}>
                         <div style={estilos.encabezado}>
@@ -316,9 +328,9 @@ const estilos: Record<string, React.CSSProperties> = {
     },
     lista: {
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-        gap: 28,
+        gap: 24,
         alignItems: "stretch",
+        width: "100%",
     },
     tarjeta: {
         minHeight: 200,
@@ -444,5 +456,22 @@ addPropertyControls(TestimoniosGoogle, {
         max: 20,
         step: 0.5,
     },
+    tarjetasEscritorio: {
+        type: ControlType.Number,
+        title: "Tarjetas Escritorio",
+        defaultValue: 2,
+        min: 1,
+        max: 4,
+        step: 1,
+    },
+    tarjetasMovil: {
+        type: ControlType.Number,
+        title: "Tarjetas Móvil",
+        defaultValue: 1,
+        min: 1,
+        max: 2,
+        step: 1,
+    },
 })
+
 
