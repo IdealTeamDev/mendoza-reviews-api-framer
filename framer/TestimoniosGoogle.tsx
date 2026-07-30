@@ -33,11 +33,17 @@ export default function TestimoniosGoogle({
     const [resenas, setResenas] = React.useState<ResenaGoogle[]>([])
     const [indiceActual, setIndiceActual] = React.useState(0)
     const [cargando, setCargando] = React.useState(true)
-    const [esMovil, setEsMovil] = React.useState(false)
+    const [anchoContenedor, setAnchoContenedor] = React.useState<number>(() => {
+        if (typeof window !== "undefined") {
+            return window.innerWidth
+        }
+        return 800
+    })
     const [pausadoPorInteraccion, setPausadoPorInteraccion] =
         React.useState(false)
     const temporizadorReanudar = React.useRef<number | null>(null)
     const interaccionActiva = React.useRef(false)
+    const contenedorRef = React.useRef<HTMLElement | null>(null)
 
     const limpiarTemporizadorReanudar = React.useCallback(() => {
         if (temporizadorReanudar.current !== null) {
@@ -66,15 +72,34 @@ export default function TestimoniosGoogle({
         }, 3000)
     }, [limpiarTemporizadorReanudar])
 
+    // Detectar dinámicamente el ancho del contenedor (en lienzo Framer) y la ventana (en móvil real)
     React.useEffect(() => {
-        const actualizarTamano = () => {
-            setEsMovil(window.innerWidth < 768)
+        const elemento = contenedorRef.current
+
+        const actualizarTamanoWindow = () => {
+            if (typeof window !== "undefined") {
+                setAnchoContenedor((prev) => Math.min(prev, window.innerWidth))
+            }
         }
 
-        actualizarTamano()
-        window.addEventListener("resize", actualizarTamano)
+        window.addEventListener("resize", actualizarTamanoWindow)
 
-        return () => window.removeEventListener("resize", actualizarTamano)
+        if (!elemento) return
+
+        const observer = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                if (entry.contentRect && entry.contentRect.width > 0) {
+                    setAnchoContenedor(entry.contentRect.width)
+                }
+            }
+        })
+
+        observer.observe(elemento)
+
+        return () => {
+            observer.disconnect()
+            window.removeEventListener("resize", actualizarTamanoWindow)
+        }
     }, [])
 
     React.useEffect(() => {
@@ -114,7 +139,11 @@ export default function TestimoniosGoogle({
         return () => limpiarTemporizadorReanudar()
     }, [limpiarTemporizadorReanudar])
 
-    // 2 tarjetas horizontales en escritorio, 1 tarjeta en móvil por defecto
+    // 100% garantizado: Es móvil si el contenedor mide < 600px O el ancho de pantalla es < 768px
+    const esMovil =
+        anchoContenedor < 600 ||
+        (typeof window !== "undefined" && window.innerWidth < 768)
+
     const cantidadVisible = esMovil ? Math.max(1, tarjetasMovil) : Math.max(1, tarjetasEscritorio)
     const puedeMoverse = resenas.length > cantidadVisible
 
@@ -163,6 +192,7 @@ export default function TestimoniosGoogle({
 
     return (
         <section
+            ref={contenedorRef}
             style={estilos.contenedor}
             onMouseEnter={pausarCarrusel}
             onMouseLeave={reanudarCarruselDespues}
