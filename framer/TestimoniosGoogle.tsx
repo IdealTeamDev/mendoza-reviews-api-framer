@@ -149,7 +149,7 @@ export default function TestimoniosGoogle({ apiUrl = URL_POR_DEFECTO }: Props) {
                         style={estilos.flecha}
                         onClick={() => cambiarResena(-1)}
                     >
-                        ‹
+                        <IconoFlecha direccion="izquierda" />
                     </button>
                     <button
                         type="button"
@@ -157,11 +157,34 @@ export default function TestimoniosGoogle({ apiUrl = URL_POR_DEFECTO }: Props) {
                         style={estilos.flecha}
                         onClick={() => cambiarResena(1)}
                     >
-                        ›
+                        <IconoFlecha direccion="derecha" />
                     </button>
                 </div>
             )}
         </section>
+    )
+}
+
+function IconoFlecha({ direccion }: { direccion: "izquierda" | "derecha" }) {
+    const puntos =
+        direccion === "izquierda" ? "15 18 9 12 15 6" : "9 18 15 12 9 6"
+
+    return (
+        <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+        >
+            <polyline
+                points={puntos}
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+        </svg>
     )
 }
 
@@ -273,22 +296,21 @@ const estilos: Record<string, React.CSSProperties> = {
     } as React.CSSProperties,
     flechas: {
         display: "flex",
-        gap: 8,
+        gap: 10,
         marginTop: 22,
     },
     flecha: {
-        width: 28,
-        height: 28,
+        width: 32,
+        height: 32,
         borderRadius: "50%",
         border: "none",
         background: "#000000",
         color: "#ffffff",
         cursor: "pointer",
-        fontSize: 22,
-        lineHeight: 1,
         display: "grid",
         placeItems: "center",
         padding: 0,
+        boxShadow: "0 8px 18px rgba(0, 0, 0, 0.18)",
     },
     mensaje: {
         width: "100%",
