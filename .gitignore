@@ -1,0 +1,7 @@
+.env
+.env.*
+!.env.example
+node_modules/
+.vercel/
+VERCEL_ENVIRONMENT_VARIABLES_MENDOZA.md
+VERCEL_ENVIRONMENT_VARIABLES_*.md

@@ -1,14 +1,32 @@
-# Mendoza Reviews en Vercel
+# Mendoza Reviews API para Framer
 
-Este proyecto elimina WordPress/Wally/Elfsight y usa:
+API automatica para sincronizar las ultimas resenas de Google Business Profile de Mendoza Plastic Surgery y mostrarlas en Framer sin depender de WordPress, Wally, Elfsight ni plugins con marca.
+
+Flujo general:
 
 ```text
-Google Business Profile API -> Vercel Cron -> /api/reviews -> Framer
+Google Business Profile API -> Vercel Cron -> API JSON -> Framer
 ```
+
+## Endpoints
+
+```text
+GET /api/reviews
+```
+
+Devuelve las resenas en JSON para consumirlas desde Framer.
+
+```text
+GET /api/sync?secret=TU_CRON_SECRET
+```
+
+Actualiza manualmente la cache de resenas. Vercel tambien llama este endpoint automaticamente todos los dias segun `vercel.json`.
+
+La ruta raiz `/` no muestra sitio web. Si abre el dominio base y ve `404: NOT_FOUND`, es normal: este proyecto es solo una API.
 
 ## Variables de entorno
 
-En Vercel agrega:
+Las variables reales se configuran en Vercel, no se suben a GitHub:
 
 ```text
 GOOGLE_CLIENT_ID
@@ -17,37 +35,12 @@ GOOGLE_REFRESH_TOKEN
 GBP_LOCATION_NAME
 CRON_SECRET
 ALLOWED_ORIGIN
+```
+
+Opcional:
+
+```text
 BLOB_READ_WRITE_TOKEN
 ```
 
-`BLOB_READ_WRITE_TOKEN` se crea activando Vercel Blob Storage en el proyecto.
-
-## Endpoints
-
-```text
-/api/reviews
-```
-
-Devuelve reseñas para Framer.
-
-```text
-/api/sync
-```
-
-Actualiza reseñas desde Google. Vercel Cron lo llama diario.
-
-Para probar manualmente:
-
-```text
-https://tu-proyecto.vercel.app/api/sync?secret=TU_CRON_SECRET
-```
-
-## Notas
-
-Esta integración usa Google Business Profile API, no Google Places básico.
-Necesita OAuth y un `refresh_token` con scope:
-
-```text
-https://www.googleapis.com/auth/business.manage
-```
-
+Consulte la guia completa en [GUIA_DEL_PROYECTO.md](./GUIA_DEL_PROYECTO.md).
