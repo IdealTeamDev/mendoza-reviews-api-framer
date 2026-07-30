@@ -13,18 +13,54 @@ type ResenaGoogle = {
 
 type Props = {
     apiUrl: string
+    autoPlay: boolean
+    intervaloSegundos: number
 }
 
 const URL_POR_DEFECTO =
     "https://mendoza-reviews-api-framer-lemon.vercel.app/api/reviews"
 
-// Este componente solo dibuja el carrusel de tarjetas.
-// El titulo, las estadisticas, el boton y el fondo se arman manualmente en Framer.
-export default function TestimoniosGoogle({ apiUrl = URL_POR_DEFECTO }: Props) {
+// Componente principal de testimonios para Framer
+export default function TestimoniosGoogle({
+    apiUrl = URL_POR_DEFECTO,
+    autoPlay = true,
+    intervaloSegundos = 4.5,
+}: Props) {
     const [resenas, setResenas] = React.useState<ResenaGoogle[]>([])
     const [indiceActual, setIndiceActual] = React.useState(0)
     const [cargando, setCargando] = React.useState(true)
     const [esMovil, setEsMovil] = React.useState(false)
+    const [pausadoPorInteraccion, setPausadoPorInteraccion] =
+        React.useState(false)
+    const temporizadorReanudar = React.useRef<number | null>(null)
+    const interaccionActiva = React.useRef(false)
+
+    const limpiarTemporizadorReanudar = React.useCallback(() => {
+        if (temporizadorReanudar.current !== null) {
+            window.clearTimeout(temporizadorReanudar.current)
+            temporizadorReanudar.current = null
+        }
+    }, [])
+
+    // El carrusel se pausa mientras el usuario interactúa (hover, touch, click, foco)
+    const pausarCarrusel = React.useCallback(() => {
+        interaccionActiva.current = true
+        setPausadoPorInteraccion(true)
+        limpiarTemporizadorReanudar()
+    }, [limpiarTemporizadorReanudar])
+
+    // Se reanuda automáticamente tras soltar o quitar el cursor
+    const reanudarCarruselDespues = React.useCallback(() => {
+        interaccionActiva.current = false
+        limpiarTemporizadorReanudar()
+
+        temporizadorReanudar.current = window.setTimeout(() => {
+            if (!interaccionActiva.current) {
+                setPausadoPorInteraccion(false)
+            }
+            temporizadorReanudar.current = null
+        }, 3000)
+    }, [limpiarTemporizadorReanudar])
 
     React.useEffect(() => {
         const actualizarTamano = () => {
@@ -51,7 +87,7 @@ export default function TestimoniosGoogle({ apiUrl = URL_POR_DEFECTO }: Props) {
 
                 setResenas(Array.isArray(datos.reviews) ? datos.reviews : [])
             } catch (error) {
-                console.error("No se pudieron cargar las resenas de Google", error)
+                console.error("No se pudieron cargar las reseñas de Google", error)
 
                 if (componenteActivo) {
                     setResenas([])
@@ -70,8 +106,28 @@ export default function TestimoniosGoogle({ apiUrl = URL_POR_DEFECTO }: Props) {
         }
     }, [apiUrl])
 
+    React.useEffect(() => {
+        return () => limpiarTemporizadorReanudar()
+    }, [limpiarTemporizadorReanudar])
+
     const cantidadVisible = esMovil ? 1 : 2
     const puedeMoverse = resenas.length > cantidadVisible
+
+    // Avance automático continuo que reinicia cíclicamente al llegar al final de la lista
+    React.useEffect(() => {
+        if (!autoPlay || !puedeMoverse || pausadoPorInteraccion || resenas.length === 0) {
+            return
+        }
+
+        const ms = Math.max(1500, intervaloSegundos * 1000)
+        const intervalo = window.setInterval(() => {
+            setIndiceActual((valorActual) => {
+                return (valorActual + 1) % resenas.length
+            })
+        }, ms)
+
+        return () => window.clearInterval(intervalo)
+    }, [autoPlay, intervaloSegundos, pausadoPorInteraccion, puedeMoverse, resenas.length])
 
     const resenasVisibles = React.useMemo(() => {
         if (resenas.length === 0) return []
@@ -84,6 +140,8 @@ export default function TestimoniosGoogle({ apiUrl = URL_POR_DEFECTO }: Props) {
 
     function cambiarResena(direccion: number) {
         if (!puedeMoverse) return
+
+        pausarCarrusel()
 
         setIndiceActual((valorActual) => {
             return (valorActual + direccion + resenas.length) % resenas.length
@@ -99,7 +157,17 @@ export default function TestimoniosGoogle({ apiUrl = URL_POR_DEFECTO }: Props) {
     }
 
     return (
-        <section style={estilos.contenedor}>
+        <section
+            style={estilos.contenedor}
+            onMouseEnter={pausarCarrusel}
+            onMouseLeave={reanudarCarruselDespues}
+            onTouchStart={pausarCarrusel}
+            onTouchEnd={reanudarCarruselDespues}
+            onPointerDown={pausarCarrusel}
+            onPointerUp={reanudarCarruselDespues}
+            onFocus={pausarCarrusel}
+            onBlur={reanudarCarruselDespues}
+        >
             <div style={estilos.lista}>
                 {resenasVisibles.map((resena) => (
                     <article key={resena.id} style={estilos.tarjeta}>
@@ -112,7 +180,12 @@ export default function TestimoniosGoogle({ apiUrl = URL_POR_DEFECTO }: Props) {
                                         style={estilos.avatar}
                                     />
                                 ) : (
-                                    <div style={estilos.avatarTexto}>
+                                    <div
+                                        style={{
+                                            ...estilos.avatarTexto,
+                                            backgroundColor: obtenerColorAvatar(resena.authorName),
+                                        }}
+                                    >
                                         {resena.authorName?.charAt(0) || "G"}
                                     </div>
                                 )}
@@ -129,7 +202,8 @@ export default function TestimoniosGoogle({ apiUrl = URL_POR_DEFECTO }: Props) {
                                 </div>
                             </div>
 
-                            <span style={estilos.google}>G</span>
+                            {/* Logo oficial de Google en 4 colores */}
+                            <LogoGoogleSvg />
                         </div>
 
                         <div style={estilos.estrellas}>
@@ -162,6 +236,29 @@ export default function TestimoniosGoogle({ apiUrl = URL_POR_DEFECTO }: Props) {
                 </div>
             )}
         </section>
+    )
+}
+
+function LogoGoogleSvg() {
+    return (
+        <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" style={{ flexShrink: 0 }}>
+            <path
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                fill="#4285F4"
+            />
+            <path
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                fill="#34A853"
+            />
+            <path
+                d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.62z"
+                fill="#FBBC05"
+            />
+            <path
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                fill="#EA4335"
+            />
+        </svg>
     )
 }
 
@@ -200,36 +297,48 @@ function formatearFecha(fecha: string) {
     }
 }
 
+function obtenerColorAvatar(nombre: string = ""): string {
+    const colores = ["#59983b", "#6a828e", "#e07a5f", "#3d405b", "#81b29a", "#f2cc8f"]
+    let hash = 0
+    for (let i = 0; i < nombre.length; i++) {
+        hash = nombre.charCodeAt(i) + ((hash << 5) - hash)
+    }
+    return colores[Math.abs(hash) % colores.length]
+}
+
 const estilos: Record<string, React.CSSProperties> = {
     contenedor: {
         width: "100%",
         background: "transparent",
         position: "relative",
-        overflow: "hidden",
-        padding: "0 0 36px",
+        overflow: "visible",
+        padding: "10px 10px 36px",
     },
     lista: {
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-        gap: 32,
+        gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+        gap: 28,
         alignItems: "stretch",
     },
     tarjeta: {
-        minHeight: 185,
+        minHeight: 200,
         background: "#ffffff",
-        borderRadius: 8,
+        borderRadius: 20,
         padding: "24px 28px",
-        boxShadow: "0 14px 34px rgba(0, 0, 0, 0.16)",
+        border: "1px solid rgba(0, 0, 0, 0.04)",
+        boxShadow:
+            "0 15px 35px -5px rgba(0, 0, 0, 0.08), 0 0 15px rgba(0, 0, 0, 0.03)",
         color: "#111111",
         display: "flex",
         flexDirection: "column",
         justifyContent: "flex-start",
+        transition: "transform 0.2s ease, box-shadow 0.2s ease",
     },
     encabezado: {
         display: "flex",
         alignItems: "flex-start",
         justifyContent: "space-between",
-        gap: 20,
+        gap: 16,
         marginBottom: 14,
     },
     autor: {
@@ -239,56 +348,49 @@ const estilos: Record<string, React.CSSProperties> = {
         minWidth: 0,
     },
     avatar: {
-        width: 38,
-        height: 38,
+        width: 44,
+        height: 44,
         borderRadius: "50%",
         objectFit: "cover",
         flexShrink: 0,
     },
     avatarTexto: {
-        width: 38,
-        height: 38,
+        width: 44,
+        height: 44,
         borderRadius: "50%",
-        background: "#7f98a3",
         color: "#ffffff",
         display: "grid",
         placeItems: "center",
         fontWeight: 700,
-        fontSize: 16,
+        fontSize: 18,
         flexShrink: 0,
     },
     nombre: {
         display: "block",
-        fontSize: 14,
+        fontSize: 15,
         fontWeight: 700,
         lineHeight: 1.2,
         color: "#111111",
     },
     fecha: {
         display: "block",
-        marginTop: 2,
-        fontSize: 11,
-        color: "#666666",
+        marginTop: 3,
+        fontSize: 12,
+        color: "#888888",
         lineHeight: 1.2,
-    },
-    google: {
-        fontSize: 18,
-        fontWeight: 700,
-        color: "#4285f4",
-        lineHeight: 1,
     },
     estrellas: {
         color: "#fbbc04",
         fontSize: 18,
         lineHeight: 1,
-        letterSpacing: 1,
-        marginBottom: 12,
+        letterSpacing: 2,
+        marginBottom: 14,
     },
     texto: {
         margin: 0,
         fontSize: 14,
-        lineHeight: 1.45,
-        color: "#111111",
+        lineHeight: 1.5,
+        color: "#222222",
         display: "-webkit-box",
         WebkitBoxOrient: "vertical",
         WebkitLineClamp: 6,
@@ -300,8 +402,8 @@ const estilos: Record<string, React.CSSProperties> = {
         marginTop: 22,
     },
     flecha: {
-        width: 32,
-        height: 32,
+        width: 36,
+        height: 36,
         borderRadius: "50%",
         border: "none",
         background: "#000000",
@@ -310,7 +412,7 @@ const estilos: Record<string, React.CSSProperties> = {
         display: "grid",
         placeItems: "center",
         padding: 0,
-        boxShadow: "0 8px 18px rgba(0, 0, 0, 0.18)",
+        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.2)",
     },
     mensaje: {
         width: "100%",
@@ -329,4 +431,18 @@ addPropertyControls(TestimoniosGoogle, {
         title: "URL de API",
         defaultValue: URL_POR_DEFECTO,
     },
+    autoPlay: {
+        type: ControlType.Boolean,
+        title: "Autoplay",
+        defaultValue: true,
+    },
+    intervaloSegundos: {
+        type: ControlType.Number,
+        title: "Segundos / Review",
+        defaultValue: 4.5,
+        min: 1,
+        max: 20,
+        step: 0.5,
+    },
 })
+
