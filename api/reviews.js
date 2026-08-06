@@ -13,11 +13,14 @@ export default async function handler(req, res) {
   try {
     // Si existe cache en Vercel Blob, se responde rapido sin llamar a Google.
     const cached = await readReviews();
-    if (cached) return json(res, cached);
-
+    if (cached && !cached.debugError) {
+      return json(res, cached);
+    }
+    const debugError = cached ? cached.debugError : "No cached data";
     // Si no hay cache configurado, se consultan las ultimas resenas directamente.
     const fresh = await fetchGoogleReviews();
     await saveReviews(fresh);
+    fresh.debugInfo = { debugError, blobTokenExists: !!process.env.BLOB_READ_WRITE_TOKEN };
     return json(res, fresh);
   } catch (error) {
     return json(res, { error: error.message || "No se pudieron obtener las resenas" }, 500);
