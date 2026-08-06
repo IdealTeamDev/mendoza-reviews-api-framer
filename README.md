@@ -24,6 +24,15 @@ Actualiza manualmente la cache de resenas. Vercel tambien llama este endpoint au
 
 La ruta raiz `/` no muestra sitio web. Si abre el dominio base y ve `404: NOT_FOUND`, es normal: este proyecto es solo una API.
 
+## Cache y Optimizacion de Rendimiento
+
+Para evitar tiempos de carga lentos (mas de 3 segundos) y errores 503 por intermitencia de la API de Google, el proyecto implementa un sistema de cache ultrarrapido utilizando **Vercel Blob**.
+
+- **Almacenamiento persistente**: Las resenas se guardan en un unico archivo JSON publico en Vercel Blob (`mendoza-google-reviews.json`).
+- **Eficiencia espacial**: Se sobrescribe el mismo archivo en cada actualizacion (`addRandomSuffix: false`, `allowOverwrite: true`), por lo que nunca ocupa mas de 20KB y no acumula basura.
+- **Tolerancia a fallos (Timeout)**: El tiempo de ejecucion maximo de las funciones (Serverless Functions) se aumento a 10 segundos en `vercel.json` para darle tiempo a la API de Google de responder durante la sincronizacion nocturna.
+- **Lectura instantanea**: Framer lee las resenas en menos de 1 segundo (usualmente ms) desde Vercel Blob, saltandose por completo la API de Google durante las visitas de los usuarios.
+
 ## Variables de entorno
 
 Las variables reales se configuran en Vercel, no se suben a GitHub:

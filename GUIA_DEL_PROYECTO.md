@@ -803,6 +803,50 @@ VERCEL_ENVIRONMENT_VARIABLES_MENDOZA.md
 VERCEL_ENVIRONMENT_VARIABLES_*.md
 ```
 
+## 27. Optimizacion de Rendimiento y Cache (Ultima Actualizacion)
+
+Para solucionar problemas de tiempos de carga excesivos (la pagina de Framer se quedaba en "Cargando testimonios..." por varios segundos) y evitar el error `503 Service Unavailable` por la intermitencia natural de la API de Google, se implemento una arquitectura de cache ultrarrapida.
+
+### 27.1 Modificaciones en `vercel.json` (Timeout)
+
+Google a veces demora en responder. Las funciones Serverless de Vercel (Hobby) tienen un timeout por defecto muy corto. Para evitar que la funcion se cierre antes de que Google responda durante la sincronizacion, se aumento el limite:
+
+```json
+{
+  "functions": {
+    "api/**/*": {
+      "maxDuration": 10
+    }
+  }
+}
+```
+
+Esto le da a la API 10 segundos de margen para terminar la sincronizacion.
+
+### 27.2 Configuracion del Vercel Blob (Cache Publico)
+
+Se creo un espacio de almacenamiento (Blob) en Vercel marcado explicitamente como **"Public"**. Esto es vital, porque si el Blob es privado, la API arrojara error al intentar guardar el JSON.
+
+El endpoint `/api/sync` toma las ultimas resenas y las guarda en Vercel Blob usando un nombre estatico: `mendoza-google-reviews.json`.
+
+### 27.3 Correcciones en el codigo de la Cache (`lib/cache.js`)
+
+Se aplicaron dos correcciones fundamentales para que el sistema no acumule basura y se lea correctamente:
+
+**1. Sobrescritura exacta (Evitar sobrecarga de datos):**
+En la funcion `put()`, se aseguro la propiedad `addRandomSuffix: false` y `allowOverwrite: true`. Esto le dice a Vercel que **reemplace el archivo exacto** en vez de crear copias infinitas con nombres aleatorios. El peso de la base de datos jamas superara unos 15KB o 20KB.
+
+**2. Lectura correcta del archivo (`list` en vez de `head`):**
+Anteriormente se usaba `head("nombre-del-archivo.json")`, lo cual generaba error porque Vercel Blob exige la URL completa para `head`. Se soluciono reemplazandolo por `list({ prefix: BLOB_KEY, limit: 1 })`, permitiendo que el sistema encuentre dinamicamente el archivo por su nombre, obtenga su URL publica segura y descargue el JSON instantaneamente.
+
+### 27.4 Beneficio real en produccion
+
+Gracias a esto:
+* Framer descarga las resenas en menos de 1 segundo (usualmente menos de 100ms).
+* Cada visitante que entra a la pagina web no dispara una nueva solicitud a Google.
+* Google nunca bloquea la pagina por limites de cuota (rate limit).
+* La informacion se actualiza silenciosamente detras de camaras cada noche mediante el Cron.
+
 Si se crea una copia nueva del documento de claves, debe mantenerse fuera del repositorio o usar un nombre que tambien este cubierto por `.gitignore`.
 
 Las claves reales solo deben vivir en:
