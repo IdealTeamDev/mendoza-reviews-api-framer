@@ -18,6 +18,7 @@ type Props = {
     tarjetasEscritorio: number
     tarjetasMovil: number
     modoVista: "auto" | "movil" | "escritorio"
+    limiteResenas: number
 }
 
 const URL_POR_DEFECTO =
@@ -31,8 +32,10 @@ export default function TestimoniosGoogle({
     tarjetasEscritorio = 2,
     tarjetasMovil = 1,
     modoVista = "auto",
+    limiteResenas = 15,
 }: Props) {
-    const [resenas, setResenas] = React.useState<ResenaGoogle[]>([])
+    const [resenasTotales, setResenasTotales] = React.useState<ResenaGoogle[]>([])
+    const resenas = React.useMemo(() => resenasTotales.slice(0, limiteResenas), [resenasTotales, limiteResenas])
     const [indiceActual, setIndiceActual] = React.useState(0)
     const [cargando, setCargando] = React.useState(true)
     const [anchoContenedor, setAnchoContenedor] = React.useState<number>(() => {
@@ -116,12 +119,12 @@ export default function TestimoniosGoogle({
 
                 if (!componenteActivo) return
 
-                setResenas(Array.isArray(datos.reviews) ? datos.reviews : [])
+                setResenasTotales(Array.isArray(datos.reviews) ? datos.reviews : [])
             } catch (error) {
                 console.error("No se pudieron cargar las reseñas de Google", error)
 
                 if (componenteActivo) {
-                    setResenas([])
+                    setResenasTotales([])
                 }
             } finally {
                 if (componenteActivo) {
@@ -519,6 +522,14 @@ addPropertyControls(TestimoniosGoogle, {
         defaultValue: 1,
         min: 1,
         max: 2,
+        step: 1,
+    },
+    limiteResenas: {
+        type: ControlType.Number,
+        title: "Límite Reseñas",
+        defaultValue: 15,
+        min: 1,
+        max: 50,
         step: 1,
     },
 })
