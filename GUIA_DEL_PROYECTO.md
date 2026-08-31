@@ -13,9 +13,10 @@ Este proyecto crea una API en Vercel que:
 1. Se conecta a Google Business Profile con OAuth.
 2. Trae las resenas de la ficha de Mendoza Plastic Surgery.
 3. Filtra resenas sin comentario.
-4. Devuelve maximo las ultimas 50 resenas.
+4. Devuelve maximo las ultimas 30 resenas.
 5. Expone las resenas como JSON para que Framer las pinte con un diseno propio.
-6. Se actualiza automaticamente con Vercel Cron.
+6. Implementa Edge Caching HTTP (7 días) para máxima velocidad y cero consumo de cuotas.
+7. Se actualiza automaticamente con Vercel Cron.
 
 Flujo tecnico:
 
@@ -23,13 +24,10 @@ Flujo tecnico:
 Google Business Profile API
         |
         v
-Vercel Serverless Function /api/sync
-        |
-        v
-Cache opcional en Vercel Blob
-        |
-        v
 Vercel Serverless Function /api/reviews
+        |
+        v
+Vercel Edge Cache CDN (7 días: s-maxage=604800)
         |
         v
 Componente en Framer
@@ -75,8 +73,8 @@ Este endpoint devuelve un JSON con esta forma:
 
 ```json
 {
-  "updatedAt": "2026-07-30T08:37:40.918Z",
-  "total": 50,
+  "updatedAt": "2026-08-31T08:37:40.918Z",
+  "total": 30,
   "reviews": [
     {
       "id": "id-de-google",
@@ -104,8 +102,8 @@ Este endpoint fuerza la actualizacion desde Google. Si todo esta bien responde a
 ```json
 {
   "ok": true,
-  "count": 50,
-  "updatedAt": "2026-07-30T08:37:40.918Z"
+  "count": 30,
+  "updatedAt": "2026-08-31T08:37:40.918Z"
 }
 ```
 
@@ -499,13 +497,13 @@ Centraliza respuestas JSON y encabezados CORS.
 El proyecto esta configurado para devolver maximo:
 
 ```text
-50 resenas
+30 resenas
 ```
 
 Esto se controla en `lib/google.js`:
 
 ```js
-const MAX_REVIEWS = 50;
+const MAX_REVIEWS = 30;
 ```
 
 Tambien se pide a Google:
@@ -515,7 +513,7 @@ pageSize=50
 orderBy=updateTime desc
 ```
 
-Por eso el sitio trabaja con las ultimas 50 resenas con comentario.
+Por eso el sitio trabaja con las ultimas 30 resenas con comentario.
 
 ## 18. Como conectar con Framer
 
@@ -803,51 +801,35 @@ VERCEL_ENVIRONMENT_VARIABLES_MENDOZA.md
 VERCEL_ENVIRONMENT_VARIABLES_*.md
 ```
 
-## 27. Optimizacion de Rendimiento y Cache (Ultima Actualizacion)
+## 27. Optimizacion de Rendimiento y Cache (Edge Caching)
 
-Para solucionar problemas de tiempos de carga excesivos (la pagina de Framer se quedaba en "Cargando testimonios..." por varios segundos) y evitar el error `503 Service Unavailable` por la intermitencia natural de la API de Google, se implemento una arquitectura de cache ultrarrapida.
+Para solucionar problemas de consumo de cuotas, suspensión de almacenamiento externo (Blob Limits) y garantizar tiempos de respuesta ultrarrápidos (menos de 50ms), se implementó una arquitectura basada en **Vercel Edge CDN Caching**:
 
-### 27.1 Modificaciones en `vercel.json` (Timeout)
+### 27.1 Cabecera HTTP `Cache-Control` (7 Días)
 
-Google a veces demora en responder. Las funciones Serverless de Vercel (Hobby) tienen un timeout por defecto muy corto. Para evitar que la funcion se cierre antes de que Google responda durante la sincronizacion, se aumento el limite:
+En `/api/reviews`, cada respuesta exitosa incluye la cabecera estándar:
 
-```json
-{
-  "functions": {
-    "api/**/*": {
-      "maxDuration": 10
-    }
-  }
-}
+```http
+Cache-Control: public, s-maxage=604800, stale-while-revalidate=2592000
 ```
 
-Esto le da a la API 10 segundos de margen para terminar la sincronizacion.
+* **`s-maxage=604800` (7 días):** La red CDN global de Vercel retiene la respuesta en sus servidores perimetrales. Cuando los usuarios visitan la web, la CDN responde directamente sin ejecutar la función serverless ni realizar lecturas a bases de datos.
+* **`stale-while-revalidate=2592000` (30 días):** Permite servir la copia en caché instantáneamente mientras en segundo plano se descarga una versión fresca si el tiempo de 7 días ha expirado.
 
-### 27.2 Configuracion del Vercel Blob (Cache Publico)
+### 27.2 Límite optimizado a 30 reseñas
 
-Se creo un espacio de almacenamiento (Blob) en Vercel marcado explicitamente como **"Public"**. Esto es vital, porque si el Blob es privado, la API arrojara error al intentar guardar el JSON.
+Se ajustó `MAX_REVIEWS = 30` en `lib/google.js` para asegurar un payload liviano y rápido para el carrusel de Framer.
 
-El endpoint `/api/sync` toma las ultimas resenas y las guarda en Vercel Blob usando un nombre estatico: `mendoza-google-reviews.json`.
+### 27.3 Tolerancia a fallos en `lib/cache.js`
 
-### 27.3 Correcciones en el codigo de la Cache (`lib/cache.js`)
-
-Se aplicaron dos correcciones fundamentales para que el sistema no acumule basura y se lea correctamente:
-
-**1. Sobrescritura exacta (Evitar sobrecarga de datos):**
-En la funcion `put()`, se aseguro la propiedad `addRandomSuffix: false` y `allowOverwrite: true`. Esto le dice a Vercel que **reemplace el archivo exacto** en vez de crear copias infinitas con nombres aleatorios. El peso de la base de datos jamas superara unos 15KB o 20KB.
-
-**2. Lectura correcta del archivo (`list` en vez de `head`):**
-Anteriormente se usaba `head("nombre-del-archivo.json")`, lo cual generaba error porque Vercel Blob exige la URL completa para `head`. Se soluciono reemplazandolo por `list({ prefix: BLOB_KEY, limit: 1 })`, permitiendo que el sistema encuentre dinamicamente el archivo por su nombre, obtenga su URL publica segura y descargue el JSON instantaneamente.
+El código maneja excepciones mediante bloques `try/catch` para que si cualquier almacenamiento secundario (como Vercel Blob) llega a estar suspendido o supera cuotas, la API capture el error silenciosamente y continúe sirviendo las reseñas directamente desde la CDN y Google sin devolver errores `500`.
 
 ### 27.4 Beneficio real en produccion
 
-Gracias a esto:
-* Framer descarga las resenas en menos de 1 segundo (usualmente menos de 100ms).
-* Cada visitante que entra a la pagina web no dispara una nueva solicitud a Google.
-* Google nunca bloquea la pagina por limites de cuota (rate limit).
-* La informacion se actualiza silenciosamente detras de camaras cada noche mediante el Cron.
-
-Si se crea una copia nueva del documento de claves, debe mantenerse fuera del repositorio o usar un nombre que tambien este cubierto por `.gitignore`.
+* Cero consumo de almacenamiento ni memoria en bases de datos.
+* Respuestas servidas con status `x-vercel-cache: HIT` en milisegundos.
+* Protección total contra límites de cuota y suspensiones.
+* El carrusel de Framer carga instantáneamente para todos los visitantes.
 
 Las claves reales solo deben vivir en:
 
